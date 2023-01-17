@@ -659,7 +659,7 @@ func (r *RegoPolicyInterpreter) GetTests() ([]string, error) {
 		for _, rule := range rules {
 			name := rule.Head.Name.String()
 			if strings.HasPrefix(name, "test_") {
-				tests = append(tests, name)
+				tests = append(tests, fmt.Sprintf("data.%s.%s", module.Namespace, name))
 			}
 		}
 	}
@@ -682,23 +682,12 @@ func (r *RegoPolicyInterpreter) RunAllTests() (map[string]bool, error) {
 		return nil, err
 	}
 
-	members := make([]string, len(tests))
-	for i, test := range tests {
-		members[i] = fmt.Sprintf(`"%s": %s`, test, test)
-	}
-
-	query := fmt.Sprintf("{%s}", strings.Join(members, ","))
-	resultSet, err := r.RawQuery(query, map[string]interface{}{})
-	if err != nil {
-		return nil, err
-	}
-
-	if len(resultSet) == 0 || len(resultSet[0].Expressions) == 0 {
-		return nil, fmt.Errorf("tests query returned no values")
-	}
-	results, ok := resultSet[0].Expressions[0].Value.(map[string]bool)
-	if !ok {
-		return nil, fmt.Errorf("invalid result for module namespace members query")
+	results := make(map[string]bool)
+	for _, test := range tests {
+		results[test], err = r.RunTest(test)
+		if err != nil {
+			return nil, fmt.Errorf("error running %s: %w", test, err)
+		}
 	}
 
 	return results, nil

@@ -438,7 +438,7 @@ func Test_GetTests(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := []string{"test_create", "test_is_greater_than_false", "test_is_greater_than_true"}
+	expected := []string{"data.test.test_create", "data.test.test_is_greater_than_false", "data.test.test_is_greater_than_true"}
 	sort.Strings(actual)
 
 	if len(actual) != len(expected) {
@@ -449,6 +449,46 @@ func Test_GetTests(t *testing.T) {
 		if a != expected[i] {
 			t.Errorf("%s != %s", a, expected[i])
 		}
+	}
+}
+
+func Test_RunTest(t *testing.T) {
+	rego, err := setupRego()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rego.AddModule("tests.rego", &RegoModule{Namespace: "test", Code: testsCode})
+
+	passed, err := rego.RunTest("data.test.test_is_greater_than_true")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !passed {
+		t.Fail()
+	}
+}
+
+func Test_RunAllTests(t *testing.T) {
+	rego, err := setupRego()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rego.AddModule("tests.rego", &RegoModule{Namespace: "test", Code: testsCode})
+
+	results, err := rego.RunAllTests()
+	if err != nil {
+		t.Error(err)
+	}
+
+	for key := range results {
+		t.Run(key, func(t *testing.T) {
+			if !results[key] {
+				t.Fail()
+			}
+		})
 	}
 }
 

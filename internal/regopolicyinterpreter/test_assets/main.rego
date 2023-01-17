@@ -1,16 +1,16 @@
 package test
 
-default is_greater_than := {"result": false}
+default is_greater_than := false
 
-is_greater_than := {"result": true} {
+is_greater_than := true {
     input.a >= input.b
 }
 
-add := {"result": result} {
+add := result {
     result := input.a + input.b
 }
 
-add := {"result": result} {
+add := result {
     result := concat("+", [input.a, input.b])
 }
 
