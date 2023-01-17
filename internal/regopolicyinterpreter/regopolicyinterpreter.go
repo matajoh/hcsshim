@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/open-policy-agent/opa/ast"
@@ -644,4 +645,61 @@ func ModuleID(issuer string, feed string) string {
 // ID is the unique ID of a module.
 func (f RegoModule) ID() string {
 	return ModuleID(f.Issuer, f.Feed)
+}
+
+func (r *RegoPolicyInterpreter) GetTests() ([]string, error) {
+	r.Compile()
+	tests := make([]string, 0)
+	for _, module := range r.modules {
+		namespace, err := ast.ParseRef(fmt.Sprintf("data.%s", module.Namespace))
+		if err != nil {
+			return nil, err
+		}
+		rules := r.compiledModules.GetRules(namespace)
+		for _, rule := range rules {
+			name := rule.Head.Name.String()
+			if strings.HasPrefix(name, "test_") {
+				tests = append(tests, name)
+			}
+		}
+	}
+
+	return tests, nil
+}
+
+func (r *RegoPolicyInterpreter) RunTest(rule string) (bool, error) {
+	resultSet, err := r.RawQuery(rule, map[string]interface{}{})
+	if err != nil {
+		return false, err
+	}
+
+	return resultSet.Allowed(), nil
+}
+
+func (r *RegoPolicyInterpreter) RunAllTests() (map[string]bool, error) {
+	tests, err := r.GetTests()
+	if err != nil {
+		return nil, err
+	}
+
+	members := make([]string, len(tests))
+	for i, test := range tests {
+		members[i] = fmt.Sprintf(`"%s": %s`, test, test)
+	}
+
+	query := fmt.Sprintf("{%s}", strings.Join(members, ","))
+	resultSet, err := r.RawQuery(query, map[string]interface{}{})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(resultSet) == 0 || len(resultSet[0].Expressions) == 0 {
+		return nil, fmt.Errorf("tests query returned no values")
+	}
+	results, ok := resultSet[0].Expressions[0].Value.(map[string]bool)
+	if !ok {
+		return nil, fmt.Errorf("invalid result for module namespace members query")
+	}
+
+	return results, nil
 }

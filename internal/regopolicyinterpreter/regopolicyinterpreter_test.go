@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"testing"
 	"testing/quick"
@@ -72,8 +73,8 @@ func Test_copyValue(t *testing.T) {
 	}
 }
 
-//go:embed test.rego
-var testCode string
+//go:embed test_assets/main.rego
+var mainCode string
 
 func Test_Bool(t *testing.T) {
 	rego, err := setupRego()
@@ -364,7 +365,7 @@ func Test_Metadata_Remove(t *testing.T) {
 	}
 }
 
-//go:embed module.rego
+//go:embed test_assets/module.rego
 var moduleCode string
 
 func Test_Module(t *testing.T) {
@@ -421,10 +422,40 @@ func Test_Module(t *testing.T) {
 
 }
 
+//go:embed test_assets/tests.rego
+var testsCode string
+
+func Test_GetTests(t *testing.T) {
+	rego, err := setupRego()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rego.AddModule("tests.rego", &RegoModule{Namespace: "test", Code: testsCode})
+
+	actual, err := rego.GetTests()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []string{"test_create", "test_is_greater_than_false", "test_is_greater_than_true"}
+	sort.Strings(actual)
+
+	if len(actual) != len(expected) {
+		t.Errorf("number of tests is %d, expected %d", len(actual), len(expected))
+	}
+
+	for i, a := range actual {
+		if a != expected[i] {
+			t.Errorf("%s != %s", a, expected[i])
+		}
+	}
+}
+
 // fixtures
 
 func setupRego() (*RegoPolicyInterpreter, error) {
-	rego, err := NewRegoPolicyInterpreter(testCode, map[string]interface{}{})
+	rego, err := NewRegoPolicyInterpreter(mainCode, map[string]interface{}{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create an interpreter: %w", err)
 	}
