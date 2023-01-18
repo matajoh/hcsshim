@@ -458,24 +458,6 @@ func Test_GetTests(t *testing.T) {
 	}
 }
 
-func Test_RunTest(t *testing.T) {
-	rego, err := setupRego()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rego.AddModule("tests.rego", &RegoModule{Namespace: "test", Code: testsCode})
-
-	passed, err := rego.RunTest("data.test.test_is_greater_than_true")
-	if err != nil {
-		t.Error(err)
-	}
-
-	if !passed {
-		t.Fail()
-	}
-}
-
 func Test_RunAllTests(t *testing.T) {
 	rego, err := setupRego()
 	if err != nil {
