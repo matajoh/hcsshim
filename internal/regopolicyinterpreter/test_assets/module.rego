@@ -1,9 +1,9 @@
 package module
 
-subtract := result {
+subtract := {"result": result} {
     result := input.a - input.b
 }
 
-subtract := result {
+subtract := {"result": result} {
     result := concat("-", [input.a, input.b])
 }

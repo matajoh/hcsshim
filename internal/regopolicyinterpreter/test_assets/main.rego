@@ -1,23 +1,23 @@
 package test
 
-default is_greater_than := false
+default is_greater_than := {"result": false}
 
-is_greater_than {
+is_greater_than := {"result": true} {
     input.a > input.b
 }
 
-add := result {
+add := {"result": result} {
     result := input.a + input.b
 }
 
-add := result {
+add := {"result": result} {
     result := concat("+", [input.a, input.b])
 }
 
 default create := {"success": false}
 
 create := {"success": true, "metadata": [addGreater, addLesser]} {
-    is_greater_than
+    is_greater_than["result"]
     addGreater := {
         "name": input.name,
         "action": "add",
@@ -33,7 +33,7 @@ create := {"success": true, "metadata": [addGreater, addLesser]} {
 }
 
 create := {"success": true, "metadata": [addGreater, addLesser]} {
-    not is_greater_than
+    not is_greater_than["result"]
     addGreater := {
         "name": input.name,
         "action": "add",
@@ -62,7 +62,7 @@ append := result {
 }
 
 append := {"success": true, "metadata": [updateGreater, updateLesser]} {
-    is_greater_than
+    is_greater_than["result"]
     updateGreater := {
         "name": input.name,
         "action": "update",
@@ -78,7 +78,7 @@ append := {"success": true, "metadata": [updateGreater, updateLesser]} {
 }
 
 append := {"success": true, "metadata": [updateGreater, updateLesser]} {
-    not is_greater_than
+    not is_greater_than["result"]
     updateGreater := {
         "name": input.name,
         "action": "update",
@@ -93,7 +93,7 @@ append := {"success": true, "metadata": [updateGreater, updateLesser]} {
     }
 }
 
-compute_gap := {"gap": result, "metadata": [removeGreater, removeLesser]} {
+compute_gap := {"result": result, "metadata": [removeGreater, removeLesser]} {
     diffs := [diff | some i
                       g := data.metadata[input.name].greater[i]
                       l := data.metadata[input.name].lesser[i]

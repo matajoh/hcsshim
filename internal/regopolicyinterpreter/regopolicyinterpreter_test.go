@@ -89,7 +89,7 @@ func Test_Bool(t *testing.T) {
 			return false
 		}
 
-		expected := p.a >= p.b
+		expected := p.a > p.b
 		actual, err := result.Bool("result")
 		if err != nil {
 			t.Error(err)
@@ -239,7 +239,7 @@ func Test_Metadata_Add(t *testing.T) {
 
 		greater := make([]int, 1)
 		lesser := make([]int, 1)
-		if p.a >= p.b {
+		if p.a > p.b {
 			greater[0] = p.a
 			lesser[0] = p.b
 		} else {
@@ -290,7 +290,7 @@ func Test_Metadata_Update(t *testing.T) {
 				return false
 			}
 
-			if pair.a >= pair.b {
+			if pair.a > pair.b {
 				greater[i], lesser[i] = pair.a, pair.b
 			} else {
 				greater[i], lesser[i] = pair.b, pair.a
@@ -338,7 +338,7 @@ func Test_Metadata_Remove(t *testing.T) {
 				return false
 			}
 
-			if pair.a >= pair.b {
+			if pair.a > pair.b {
 				expected += pair.a - pair.b
 			} else {
 				expected += pair.b - pair.a
@@ -438,11 +438,17 @@ func Test_GetTests(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := []string{"data.test.test_create", "data.test.test_is_greater_than_false", "data.test.test_is_greater_than_true"}
+	expected := []string{
+		"data.test.test_add",
+		"data.test.test_append",
+		"data.test.test_compute_gap",
+		"data.test.test_create",
+		"data.test.test_is_greater_than_false",
+		"data.test.test_is_greater_than_true"}
 	sort.Strings(actual)
 
 	if len(actual) != len(expected) {
-		t.Errorf("number of tests is %d, expected %d", len(actual), len(expected))
+		t.Fatalf("number of tests is %d, expected %d", len(actual), len(expected))
 	}
 
 	for i, a := range actual {

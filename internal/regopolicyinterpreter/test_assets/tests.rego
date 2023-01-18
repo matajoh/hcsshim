@@ -3,11 +3,18 @@ package test
 import future.keywords
 
 test_is_greater_than_true if {
-    is_greater_than with input as {"a": 2, "b": 1}
+    result := is_greater_than with input as {"a": 2, "b": 1}
+    result["result"]
 }
 
 test_is_greater_than_false if {
-    not is_greater_than with input as {"a": 1, "b": 2}
+    result := is_greater_than with input as {"a": 1, "b": 2}
+    not result["result"]
+}
+
+test_add if {
+    result := add with input as {"a": 2, "b": 1}
+    result["result"] == 3
 }
 
 test_create if {
@@ -61,7 +68,7 @@ test_compute_gap if {
             }
         }    
 
-    result["gap"] == 2
+    result["result"] == 2
     
     greater := result["metadata"][0]
     greater.name == "test"
