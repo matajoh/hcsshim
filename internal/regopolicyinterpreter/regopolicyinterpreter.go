@@ -648,7 +648,11 @@ func (f RegoModule) ID() string {
 }
 
 func (r *RegoPolicyInterpreter) GetTests() ([]string, error) {
-	r.Compile()
+	err := r.Compile()
+	if err != nil {
+		return nil, fmt.Errorf("error compiling rego: %w", err)
+	}
+
 	tests := make([]string, 0)
 	for _, module := range r.modules {
 		namespace, err := ast.ParseRef(fmt.Sprintf("data.%s", module.Namespace))
@@ -674,21 +678,4 @@ func (r *RegoPolicyInterpreter) RunTest(rule string) (bool, error) {
 	}
 
 	return resultSet.Allowed(), nil
-}
-
-func (r *RegoPolicyInterpreter) RunAllTests() (map[string]bool, error) {
-	tests, err := r.GetTests()
-	if err != nil {
-		return nil, err
-	}
-
-	results := make(map[string]bool)
-	for _, test := range tests {
-		results[test], err = r.RunTest(test)
-		if err != nil {
-			return nil, fmt.Errorf("error running %s: %w", test, err)
-		}
-	}
-
-	return results, nil
 }

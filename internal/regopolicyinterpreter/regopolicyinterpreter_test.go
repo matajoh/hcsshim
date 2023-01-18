@@ -478,15 +478,19 @@ func Test_RunAllTests(t *testing.T) {
 
 	rego.AddModule("tests.rego", &RegoModule{Namespace: "test", Code: testsCode})
 
-	results, err := rego.RunAllTests()
+	tests, err := rego.GetTests()
 	if err != nil {
 		t.Error(err)
 	}
 
-	for key := range results {
-		t.Run(key, func(t *testing.T) {
-			if !results[key] {
-				t.Fail()
+	for _, test := range tests {
+		t.Run(test, func(tt *testing.T) {
+			result, err := rego.RunTest(test)
+			if err != nil {
+				tt.Error(err)
+			}
+			if !result {
+				tt.Fail()
 			}
 		})
 	}
