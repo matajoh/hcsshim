@@ -5,17 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
 	"sort"
 	"strconv"
 	"testing"
 	"testing/quick"
-	"time"
-
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/types"
 )
 
 const (
@@ -26,24 +20,6 @@ const (
 	maxArrayLength    = 10
 	maxObjectDepth    = 4
 )
-
-var testRand *rand.Rand
-var uniqueStrings map[string]struct{}
-
-func init() {
-	seed := time.Now().Unix()
-	if seedStr, ok := os.LookupEnv("SEED"); ok {
-
-		if parsedSeed, err := strconv.ParseInt(seedStr, 10, 64); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to parse seed: %d\n", seed)
-		} else {
-			seed = parsedSeed
-		}
-	}
-	testRand = rand.New(rand.NewSource(seed))
-	fmt.Fprintf(os.Stdout, "regopolicyinterpreter_test seed: %d\n", seed)
-	uniqueStrings = make(map[string]struct{})
-}
 
 func Test_copyObject(t *testing.T) {
 	f := func(orig testObject) bool {
@@ -56,7 +32,7 @@ func Test_copyObject(t *testing.T) {
 		return assertObjectsEqual(orig, copy)
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: rng}); err != nil {
 		t.Errorf("Test_copyObject: %v", err)
 	}
 }
@@ -72,7 +48,7 @@ func Test_copyValue(t *testing.T) {
 		return assertValuesEqual(orig.value, valueCopy)
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: rng}); err != nil {
 		t.Errorf("Test_copyValue: %v", err)
 	}
 }
@@ -109,7 +85,7 @@ func Test_Bool(t *testing.T) {
 		return true
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: rng}); err != nil {
 		t.Errorf("Test_Bool: %v", err)
 	}
 }
@@ -142,7 +118,7 @@ func Test_Int(t *testing.T) {
 		return true
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: rng}); err != nil {
 		t.Errorf("Test_Int: %v", err)
 	}
 }
@@ -182,7 +158,7 @@ func Test_Float(t *testing.T) {
 		return true
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: rng}); err != nil {
 		t.Errorf("Test_Int: %v", err)
 	}
 }
@@ -223,7 +199,7 @@ func Test_String(t *testing.T) {
 		return true
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 1000, Rand: rng}); err != nil {
 		t.Errorf("Test_Int: %v", err)
 	}
 }
@@ -272,7 +248,7 @@ func Test_Metadata_Add(t *testing.T) {
 		return true
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 100, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 100, Rand: rng}); err != nil {
 		t.Errorf("Test_Metadata_Add: %v", err)
 	}
 }
@@ -322,7 +298,7 @@ func Test_Metadata_Update(t *testing.T) {
 		return true
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 100, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 100, Rand: rng}); err != nil {
 		t.Errorf("Test_Metadata_Update: %v", err)
 	}
 }
@@ -364,7 +340,7 @@ func Test_Metadata_Remove(t *testing.T) {
 		return true
 	}
 
-	if err := quick.Check(f, &quick.Config{MaxCount: 100, Rand: testRand}); err != nil {
+	if err := quick.Check(f, &quick.Config{MaxCount: 100, Rand: rng}); err != nil {
 		t.Errorf("Test_Metadata_Remove: %v", err)
 	}
 }
@@ -405,7 +381,7 @@ func Test_Module(t *testing.T) {
 		return true
 	}
 
-	if err = quick.Check(f, &quick.Config{MaxCount: 100, Rand: testRand}); err != nil {
+	if err = quick.Check(f, &quick.Config{MaxCount: 100, Rand: rng}); err != nil {
 		t.Errorf("Test_Module_Compiled: %v", err)
 	}
 
@@ -419,7 +395,7 @@ func Test_Module(t *testing.T) {
 		t.Errorf("removing a module should clear the compiled artifacts")
 	}
 
-	p := generateIntPair(testRand)
+	p := generateIntPair(rng)
 	if _, err := getResult(rego, p, "subtract"); err == nil {
 		t.Errorf("able to call subtract after module has been removed")
 	}
@@ -566,7 +542,7 @@ func (intPairArray) Generate(r *rand.Rand, _ int) reflect.Value {
 type metadataName string
 
 func (metadataName) Generate(r *rand.Rand, _ int) reflect.Value {
-	value := metadataName(uniqueString(r))
+	value := metadataName(uniqueString(r, stringLength))
 	return reflect.ValueOf(value)
 }
 
@@ -601,7 +577,7 @@ func generateValue(r *rand.Rand, depth int) interface{} {
 		return generateArray(r, depth+1)
 
 	case testValueString:
-		return randString(r)
+		return randString(r, stringLength)
 
 	case testValueFloat:
 		return r.Float64()
@@ -630,7 +606,7 @@ func generateObject(r *rand.Rand, depth int) testObject {
 	result := make(testObject)
 	numFields := r.Intn(maxNumberOfFields)
 	for f := 0; f < numFields; f++ {
-		name := uniqueString(r)
+		name := uniqueString(r, stringLength)
 		result[name] = generateValue(r, depth)
 	}
 
@@ -762,32 +738,6 @@ func assertListEqual(r *RegoPolicyInterpreter, name metadataName, key string, ex
 	return nil
 }
 
-func randChar(r *rand.Rand) byte {
-	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	return charset[r.Intn(len(charset))]
-}
-
-func randString(r *rand.Rand) string {
-	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	chars := make([]byte, stringLength)
-	chars[0] = randChar(r)
-	for i := 1; i < stringLength; i++ {
-		chars[i] = charset[r.Intn(len(charset))]
-	}
-	return string(chars)
-}
-
-func uniqueString(r *rand.Rand) string {
-	for {
-		s := randString(r)
-
-		if _, ok := uniqueStrings[s]; !ok {
-			uniqueStrings[s] = struct{}{}
-			return s
-		}
-	}
-}
-
 func assertValuesEqual(lhs interface{}, rhs interface{}) bool {
 	if lhsObject, ok := lhs.(testObject); ok {
 		if rhsObject, ok := rhs.(testObject); ok {
@@ -870,64 +820,4 @@ func assertObjectsEqual(lhs testObject, rhs testObject) bool {
 	}
 
 	return true
-}
-
-var testExtensions []func(*rego.Rego) = []func(*rego.Rego){rego.Function2(&rego.Function{
-	Name: "random_int",
-	Decl: types.NewFunction(types.Args(types.N, types.N), types.N),
-},
-	func(_ rego.BuiltinContext, a *ast.Term, b *ast.Term) (*ast.Term, error) {
-		min, ok := a.Value.(ast.Number)
-		if !ok {
-			return nil, fmt.Errorf("expected minimum to be a number: %v", a.Value)
-		}
-
-		max, ok := a.Value.(ast.Number)
-		if !ok {
-			return nil, fmt.Errorf("expected maximum to be a number: %v", a.Value)
-		}
-
-		if min.Compare(max) >= 0 {
-			return nil, fmt.Errorf("minimum must be less than maximum: %v >= %v", a.Value, b.Value)
-		}
-
-		if minInt, ok := min.Int(); ok {
-			if maxInt, ok := max.Int(); ok {
-				return ast.IntNumberTerm(testRand.Intn(maxInt-minInt) + minInt), nil
-			} else {
-				return nil, fmt.Errorf("unable to convert maximum to an integer: %v", max)
-			}
-		} else {
-			return nil, fmt.Errorf("unable to convert minimum to an integer: %v", min)
-		}
-	}),
-	rego.Function2(&rego.Function{
-		Name: "random_float64",
-		Decl: types.NewFunction(types.Args(types.N, types.N), types.N),
-	},
-		func(_ rego.BuiltinContext, a *ast.Term, b *ast.Term) (*ast.Term, error) {
-			min, ok := a.Value.(ast.Number)
-			if !ok {
-				return nil, fmt.Errorf("expected minimum to be a number: %v", a.Value)
-			}
-
-			max, ok := a.Value.(ast.Number)
-			if !ok {
-				return nil, fmt.Errorf("expected maximum to be a number: %v", a.Value)
-			}
-
-			if min.Compare(max) >= 0 {
-				return nil, fmt.Errorf("minimum must be less than maximum: %v >= %v", a.Value, b.Value)
-			}
-
-			if minFloat, ok := min.Float64(); ok {
-				if maxFloat, ok := max.Float64(); ok {
-					return ast.FloatNumberTerm(testRand.Float64()*(maxFloat-minFloat) + minFloat), nil
-				} else {
-					return nil, fmt.Errorf("unable to convert maximum to an float64: %v", max)
-				}
-			} else {
-				return nil, fmt.Errorf("unable to convert minimum to an float64: %v", min)
-			}
-		}),
 }

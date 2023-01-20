@@ -7,14 +7,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/open-policy-agent/opa/topdown"
+	"github.com/open-policy-agent/opa/types"
 	"github.com/pkg/errors"
 )
 
@@ -41,8 +45,6 @@ type RegoPolicyInterpreter struct {
 	modules map[string]*RegoModule
 	// Compiled modules
 	compiledModules *ast.Compiler
-	// Extensions
-	extensions []func(*rego.Rego)
 	// Logging
 	logLevel       LogLevel
 	logFile        *os.File
@@ -374,16 +376,33 @@ func (r *RegoPolicyInterpreter) compile() error {
 
 	modules["policy.rego"] = r.code
 
-	options := ast.CompileOpts{
-		EnablePrintStatements: r.logLevel != LogNone,
+	capabilities := ast.CapabilitiesForThisVersion()
+	capabilities.Builtins = append(capabilities.Builtins, builtins...)
+
+	parserOptions := ast.ParserOptions{
+		Capabilities: capabilities,
 	}
 
-	if compiled, err := ast.CompileModulesWithOpt(modules, options); err == nil {
-		r.compiledModules = compiled
-		return nil
-	} else {
-		return fmt.Errorf("rego compilation failed: %w", err)
+	parsed := make(map[string]*ast.Module, len(modules))
+
+	for f, module := range modules {
+		var pm *ast.Module
+		var err error
+		if pm, err = ast.ParseModuleWithOpts(f, module, parserOptions); err != nil {
+			return err
+		}
+		parsed[f] = pm
 	}
+
+	compiler := ast.NewCompiler().WithEnablePrintStatements(r.logLevel != LogNone).WithCapabilities(capabilities)
+	compiler.Compile(parsed)
+
+	if compiler.Failed() {
+		return fmt.Errorf("rego compilation failed: %w", compiler.Errors)
+	}
+
+	r.compiledModules = compiler
+	return nil
 }
 
 // Compile compiles the policy and its modules. This will increase the speed of policy
@@ -542,6 +561,10 @@ func (r *RegoPolicyInterpreter) query(rule string, input map[string]interface{})
 		rego.PrintHook(topdown.NewPrintHook(&buf)),
 		rego.Compiler(r.compiledModules))
 
+	for _, ext := range extensions {
+		ext(query)
+	}
+
 	ctx := context.Background()
 	resultSet, err := query.Eval(ctx)
 	output := buf.String()
@@ -680,4 +703,218 @@ func (r *RegoPolicyInterpreter) RunTest(rule string) (bool, error) {
 	}
 
 	return resultSet.Allowed(), nil
+}
+
+var builtins []*ast.Builtin = []*ast.Builtin{
+	{
+		Name:        "rand.int_array",
+		Description: "Generates an array of random int in [minimum, maximum)",
+		Decl:        types.NewFunction(types.Args(types.N, types.N, types.N), types.A),
+		Categories:  []string{"random", "numbers"},
+	},
+	{
+		Name:        "rand.float64_array",
+		Description: "Generates an array of random float64 in [minimum, maximum)",
+		Decl:        types.NewFunction(types.Args(types.N, types.N, types.N), types.A),
+		Categories:  []string{"random", "numbers"},
+	},
+	{
+		Name:        "rand.string_array",
+		Description: "Generates an array of random, unique strings of length",
+		Decl:        types.NewFunction(types.Args(types.N, types.N, types.B), types.A),
+		Categories:  []string{"random", "strings"},
+	},
+}
+
+var rng *rand.Rand
+var uniqueStrings map[string]struct{}
+
+func init() {
+	seed := time.Now().Unix()
+	if seedStr, ok := os.LookupEnv("SEED"); ok {
+
+		if parsedSeed, err := strconv.ParseInt(seedStr, 10, 64); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to parse seed: %d\n", seed)
+		} else {
+			seed = parsedSeed
+		}
+	}
+	rng = rand.New(rand.NewSource(seed))
+	fmt.Fprintf(os.Stdout, "regopolicyinterpreter_test seed: %d\n", seed)
+	uniqueStrings = make(map[string]struct{})
+}
+
+func randChar(r *rand.Rand) byte {
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	return charset[r.Intn(len(charset))]
+}
+
+func randString(r *rand.Rand, stringLength int) string {
+	charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	chars := make([]byte, stringLength)
+	chars[0] = randChar(r)
+	for i := 1; i < stringLength; i++ {
+		chars[i] = charset[r.Intn(len(charset))]
+	}
+	return string(chars)
+}
+
+func uniqueString(r *rand.Rand, stringLength int) string {
+	for {
+		s := randString(r, stringLength)
+
+		if _, ok := uniqueStrings[s]; !ok {
+			uniqueStrings[s] = struct{}{}
+			return s
+		}
+	}
+}
+
+var extensions []func(*rego.Rego) = []func(*rego.Rego){rego.Function3(&rego.Function{
+	Name: "rand.int_array",
+	Decl: types.NewFunction(types.Args(types.N, types.N, types.N), types.A),
+},
+	func(_ rego.BuiltinContext, a *ast.Term, b *ast.Term, c *ast.Term) (*ast.Term, error) {
+		min, ok := a.Value.(ast.Number)
+		if !ok {
+			return nil, fmt.Errorf("expected minimum to be a number: %v", a.Value)
+		}
+
+		max, ok := b.Value.(ast.Number)
+		if !ok {
+			return nil, fmt.Errorf("expected maximum to be a number: %v", b.Value)
+		}
+
+		count, ok := c.Value.(ast.Number)
+		if !ok {
+			return nil, fmt.Errorf("expected count to be a number: %v", c.Value)
+		}
+
+		if min.Compare(max) >= 0 {
+			return nil, fmt.Errorf("minimum must be less than maximum: %v >= %v", a.Value, b.Value)
+		}
+
+		countInt, ok := count.Int()
+		if !ok {
+			return nil, fmt.Errorf("unable to convert count to an integer: %v", count)
+		}
+
+		if min.Compare(max) >= 0 {
+			return nil, fmt.Errorf("minimum must be less than maximum: %v >= %v", a.Value, b.Value)
+		}
+
+		if countInt <= 0 {
+			return nil, fmt.Errorf("count must be at least one: %v <= 0", countInt)
+		}
+
+		minInt, ok := min.Int()
+		if !ok {
+			return nil, fmt.Errorf("unable to convert minimum to an integer: %v", min)
+		}
+
+		maxInt, ok := max.Int()
+		if !ok {
+			return nil, fmt.Errorf("unable to convert maximum to an integer: %v", max)
+		}
+
+		values := make([]*ast.Term, countInt)
+		for i := 0; i < countInt; i++ {
+			values[i] = ast.IntNumberTerm(rng.Intn(maxInt-minInt) + minInt)
+		}
+
+		return ast.ArrayTerm(values...), nil
+	}),
+	rego.Function3(&rego.Function{
+		Name: "rand.float64_array",
+		Decl: types.NewFunction(types.Args(types.N, types.N, types.N), types.A),
+	},
+		func(_ rego.BuiltinContext, a *ast.Term, b *ast.Term, c *ast.Term) (*ast.Term, error) {
+			min, ok := a.Value.(ast.Number)
+			if !ok {
+				return nil, fmt.Errorf("expected minimum to be a number: %v", a.Value)
+			}
+
+			max, ok := b.Value.(ast.Number)
+			if !ok {
+				return nil, fmt.Errorf("expected maximum to be a number: %v", a.Value)
+			}
+
+			count, ok := c.Value.(ast.Number)
+			if !ok {
+				return nil, fmt.Errorf("expected count to be a number: %v", c.Value)
+			}
+
+			countInt, ok := count.Int()
+			if !ok {
+				return nil, fmt.Errorf("unable to convert count to an integer: %v", count)
+			}
+
+			if min.Compare(max) >= 0 {
+				return nil, fmt.Errorf("minimum must be less than maximum: %v >= %v", min, max)
+			}
+
+			if countInt <= 0 {
+				return nil, fmt.Errorf("count must be at least one: %v <= 0", countInt)
+			}
+
+			minFloat, ok := min.Float64()
+			if !ok {
+				return nil, fmt.Errorf("unable to convert minimum to an float64: %v", min)
+			}
+
+			maxFloat, ok := max.Float64()
+			if !ok {
+				return nil, fmt.Errorf("unable to convert maximum to an float64: %v", max)
+			}
+
+			values := make([]*ast.Term, countInt)
+			for i := 0; i < countInt; i++ {
+				values[i] = ast.FloatNumberTerm(rng.Float64()*(maxFloat-minFloat) + minFloat)
+			}
+
+			return ast.ArrayTerm(values...), nil
+		}),
+	rego.Function3(&rego.Function{
+		Name: "rand.string_array",
+		Decl: types.NewFunction(types.Args(types.N, types.N, types.B), types.A),
+	},
+		func(_ rego.BuiltinContext, a *ast.Term, b *ast.Term, c *ast.Term) (*ast.Term, error) {
+			length, ok := a.Value.(ast.Number)
+			if !ok {
+				return nil, fmt.Errorf("expected length to be a number: %v", a.Value)
+			}
+
+			count, ok := b.Value.(ast.Number)
+			if !ok {
+				return nil, fmt.Errorf("expected count to be a number: %v", b.Value)
+			}
+
+			unique, ok := c.Value.(ast.Boolean)
+			if !ok {
+				return nil, fmt.Errorf("expected unique to be a boolean: %v", c.Value)
+			}
+
+			lengthInt, ok := length.Int()
+			if !ok {
+				return nil, fmt.Errorf("unable to convert length to an integer: %v", length)
+			}
+
+			countInt, ok := count.Int()
+			if !ok {
+				return nil, fmt.Errorf("unable to convert count to an integer: %v", count)
+			}
+
+			values := make([]*ast.Term, countInt)
+			for i := 0; i < countInt; i++ {
+				var value string
+				if unique {
+					value = uniqueString(rng, lengthInt)
+				} else {
+					value = randString(rng, lengthInt)
+				}
+				values[i] = ast.StringTerm(value)
+			}
+
+			return ast.ArrayTerm(values...), nil
+		}),
 }
