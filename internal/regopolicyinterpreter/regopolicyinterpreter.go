@@ -41,6 +41,8 @@ type RegoPolicyInterpreter struct {
 	modules map[string]*RegoModule
 	// Compiled modules
 	compiledModules *ast.Compiler
+	// Extensions
+	extensions []func(*rego.Rego)
 	// Logging
 	logLevel       LogLevel
 	logFile        *os.File

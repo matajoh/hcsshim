@@ -12,6 +12,10 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
+
+	"github.com/open-policy-agent/opa/ast"
+	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/types"
 )
 
 const (
@@ -866,4 +870,64 @@ func assertObjectsEqual(lhs testObject, rhs testObject) bool {
 	}
 
 	return true
+}
+
+var testExtensions []func(*rego.Rego) = []func(*rego.Rego){rego.Function2(&rego.Function{
+	Name: "random_int",
+	Decl: types.NewFunction(types.Args(types.N, types.N), types.N),
+},
+	func(_ rego.BuiltinContext, a *ast.Term, b *ast.Term) (*ast.Term, error) {
+		min, ok := a.Value.(ast.Number)
+		if !ok {
+			return nil, fmt.Errorf("expected minimum to be a number: %v", a.Value)
+		}
+
+		max, ok := a.Value.(ast.Number)
+		if !ok {
+			return nil, fmt.Errorf("expected maximum to be a number: %v", a.Value)
+		}
+
+		if min.Compare(max) >= 0 {
+			return nil, fmt.Errorf("minimum must be less than maximum: %v >= %v", a.Value, b.Value)
+		}
+
+		if minInt, ok := min.Int(); ok {
+			if maxInt, ok := max.Int(); ok {
+				return ast.IntNumberTerm(testRand.Intn(maxInt-minInt) + minInt), nil
+			} else {
+				return nil, fmt.Errorf("unable to convert maximum to an integer: %v", max)
+			}
+		} else {
+			return nil, fmt.Errorf("unable to convert minimum to an integer: %v", min)
+		}
+	}),
+	rego.Function2(&rego.Function{
+		Name: "random_float64",
+		Decl: types.NewFunction(types.Args(types.N, types.N), types.N),
+	},
+		func(_ rego.BuiltinContext, a *ast.Term, b *ast.Term) (*ast.Term, error) {
+			min, ok := a.Value.(ast.Number)
+			if !ok {
+				return nil, fmt.Errorf("expected minimum to be a number: %v", a.Value)
+			}
+
+			max, ok := a.Value.(ast.Number)
+			if !ok {
+				return nil, fmt.Errorf("expected maximum to be a number: %v", a.Value)
+			}
+
+			if min.Compare(max) >= 0 {
+				return nil, fmt.Errorf("minimum must be less than maximum: %v >= %v", a.Value, b.Value)
+			}
+
+			if minFloat, ok := min.Float64(); ok {
+				if maxFloat, ok := max.Float64(); ok {
+					return ast.FloatNumberTerm(testRand.Float64()*(maxFloat-minFloat) + minFloat), nil
+				} else {
+					return nil, fmt.Errorf("unable to convert maximum to an float64: %v", max)
+				}
+			} else {
+				return nil, fmt.Errorf("unable to convert minimum to an float64: %v", min)
+			}
+		}),
 }
