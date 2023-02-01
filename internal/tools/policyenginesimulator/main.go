@@ -123,7 +123,7 @@ func parseNamespace(rego string) string {
 		log.Fatal("package definition required on first line of Rego module")
 	}
 
-	namespace := parts[1]
+	namespace := strings.TrimSpace(parts[1])
 	return namespace
 }
 
@@ -145,8 +145,10 @@ func loadLocalFragment(commandsDir string, input map[string]interface{}) *rpi.Re
 	}
 
 	code := string(content)
+	input["namespace"] = parseNamespace(code)
+
 	return &rpi.RegoModule{
-		Namespace: parseNamespace(code),
+		Namespace: input["namespace"].(string),
 		Feed:      input["feed"].(string),
 		Issuer:    input["issuer"].(string),
 		Code:      code,
@@ -163,6 +165,8 @@ func main() {
 	commands := readCommands()
 	rego := createInterpreter()
 
+	numAllow := 0
+	numDeny := 0
 	for i, command := range commands {
 		var fragment *rpi.RegoModule
 		if command.Name == "load_fragment" {
@@ -192,8 +196,10 @@ func main() {
 		}
 
 		if allowed {
+			numAllow += 1
 			log.Printf("%02d> %s ok\n", i, command.Name)
 		} else {
+			numDeny += 1
 			log.Printf("%02d> %s not allowed", i, command.Name)
 			command.Input["rule"] = command.Name
 			result, err = rego.Query("data.policy.reason", command.Input)
@@ -210,5 +216,8 @@ func main() {
 		if removeModule && fragment != nil {
 			rego.RemoveModule(fragment.ID())
 		}
+
 	}
+
+	log.Printf("%d allowed, %d denied", numAllow, numDeny)
 }
