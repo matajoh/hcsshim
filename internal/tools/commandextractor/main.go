@@ -158,7 +158,23 @@ func toArray(array sp.StringArrayMap) []string {
 	return elements
 }
 
-func containerToCommands(container *sp.Container) []command {
+func toIDName(config sp.IDNameConfig) map[string]interface{} {
+	switch config.Strategy {
+	case sp.IDNameStrategyID:
+		return map[string]interface{}{"id": config.Rule, "name": ""}
+
+	case sp.IDNameStrategyName:
+		return map[string]interface{}{"id": "", "name": config.Rule}
+
+	case sp.IDNameStrategyAny:
+		return map[string]interface{}{"id": "0", "name": "root"}
+	}
+
+	log.Fatalf("unsupported IDNameStrategy: %s", config.Strategy)
+	return nil
+}
+
+func containerToCommands(container *sp.Container, privileged bool) []command {
 	commands := make([]command, 0)
 	numLayers := len(container.Layers.Elements)
 	layerPaths := make([]string, numLayers)
@@ -236,16 +252,37 @@ func containerToCommands(container *sp.Container) []command {
 
 	argList := toArray(sp.StringArrayMap(container.Command))
 
+	user := toIDName(container.User.UserIDName)
+	groups := make([]interface{}, len(container.User.GroupIDNames))
+	for i, group := range container.User.GroupIDNames {
+		groups[i] = toIDName(group)
+	}
+
+	capabilities := map[string]interface{}{
+		"bounding":    container.Capabilities.Bounding,
+		"effective":   container.Capabilities.Effective,
+		"inheritable": container.Capabilities.Inheritable,
+		"permitted":   container.Capabilities.Permitted,
+		"ambient":     container.Capabilities.Ambient,
+	}
+
 	commands = append(commands, command{
 		Name: "create_container",
 		Input: map[string]interface{}{
-			"containerID":  containerID,
-			"argList":      argList,
-			"envList":      envList,
-			"workingDir":   container.WorkingDir,
-			"sandboxDir":   sandboxMountsDir(sandboxID),
-			"hugePagesDir": hugePagesMountsDir(sandboxID),
-			"mounts":       mounts,
+			"containerID":          containerID,
+			"argList":              argList,
+			"envList":              envList,
+			"workingDir":           container.WorkingDir,
+			"sandboxDir":           sandboxMountsDir(sandboxID),
+			"hugePagesDir":         hugePagesMountsDir(sandboxID),
+			"mounts":               mounts,
+			"privileged":           privileged,
+			"noNewPrivileges":      container.NoNewPrivileges,
+			"user":                 user,
+			"groups":               groups,
+			"umask":                container.User.Umask,
+			"capabilities":         capabilities,
+			"seccompProfileSHA256": container.SeccompProfileSHA256,
 		},
 	})
 
@@ -383,7 +420,8 @@ func policyConfigToCommands(path string) []command {
 
 	// create all containers and run their processes
 	for _, container := range policyContainers {
-		commands = append(commands, containerToCommands(container)...)
+		commands = append(commands, containerToCommands(container, false)...)
+		commands = append(commands, containerToCommands(container, true)...)
 	}
 
 	return commands
@@ -421,7 +459,8 @@ func fragmentConfigToCommands(path string) []command {
 
 	// create all containers and run their processes
 	for _, container := range policyContainers {
-		commands = append(commands, containerToCommands(container)...)
+		commands = append(commands, containerToCommands(container, false)...)
+		commands = append(commands, containerToCommands(container, true)...)
 	}
 
 	return commands
