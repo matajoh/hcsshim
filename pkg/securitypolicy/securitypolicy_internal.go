@@ -21,7 +21,7 @@ type securityPolicyInternal struct {
 
 type securityPolicyFragment struct {
 	Namespace         string
-	SVN               string
+	SVN               int
 	Containers        []*securityPolicyContainer
 	ExternalProcesses []*externalProcess
 	Fragments         []*fragment
@@ -91,7 +91,7 @@ func newSecurityPolicyInternal(
 
 func newSecurityPolicyFragment(
 	namespace string,
-	svn string,
+	svn int,
 	containers []*Container,
 	externalProcesses []ExternalProcessConfig,
 	fragments []FragmentConfig) (*securityPolicyFragment, error) {
@@ -177,7 +177,7 @@ type capabilitiesInternal struct {
 type fragment struct {
 	issuer     string
 	feed       string
-	minimumSVN string
+	minimumSVN int
 	includes   []string
 }
 

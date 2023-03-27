@@ -33,7 +33,7 @@ const (
 	maxGeneratedEnvironmentVariableRules      = 8
 	maxGeneratedFragmentNamespaceLength       = 32
 	maxGeneratedMountTargetLength             = 256
-	maxGeneratedVersion                       = 10
+	maxGeneratedVersion                       = 100
 	rootHashLength                            = 64
 	maxGeneratedMounts                        = 4
 	maxGeneratedMountSourceLength             = 32
@@ -1233,11 +1233,8 @@ func generateFragmentNamespace(r *rand.Rand) string {
 	return randChar(r) + randVariableString(r, maxGeneratedFragmentNamespaceLength)
 }
 
-func generateSVN(r *rand.Rand) string {
-	major := randMinMax(r, 0, maxGeneratedVersion)
-	minor := randMinMax(r, 0, maxGeneratedVersion)
-	patch := randMinMax(r, 0, maxGeneratedVersion)
-	return fmt.Sprintf("%d.%d.%d", major, minor, patch)
+func generateSVN(r *rand.Rand) int {
+	return int(randMinMax(r, 0, maxGeneratedVersion))
 }
 
 func selectRootHashFromConstraints(constraints *generatedConstraints, r *rand.Rand) string {
@@ -1500,7 +1497,7 @@ type generatedConstraints struct {
 	allowEnvironmentVariableDropping bool
 	allowUnencryptedScratch          bool
 	namespace                        string
-	svn                              string
+	svn                              int
 	allowCapabilityDropping          bool
 }
 

@@ -16,7 +16,7 @@ var (
 	configFile        = flag.String("c", "", "config path")
 	outputType        = flag.String("t", "", "[rego|json|fragment]")
 	fragmentNamespace = flag.String("n", "", "fragment namespace")
-	fragmentSVN       = flag.String("v", "", "fragment svn")
+	fragmentSVN       = flag.Int("v", 0, "fragment svn")
 	outputRaw         = flag.Bool("r", false, "whether to print the raw output")
 )
 

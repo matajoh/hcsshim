@@ -3,7 +3,7 @@ package framework
 import future.keywords.every
 import future.keywords.in
 
-svn := "@@FRAMEWORK_SVN@@"
+version := "@@FRAMEWORK_VERSION@@"
 
 device_mounted(target) {
     data.metadata.devices[target]
@@ -70,7 +70,7 @@ overlay_mounted(target) {
 default candidate_containers := []
 
 candidate_containers := containers {
-    semver.compare(data.policy.framework_svn, svn) == 0
+    semver.compare(data.policy.framework_version, version) == 0
 
     policy_containers := [c | c := data.policy.containers[_]]
     fragment_containers := [c |
@@ -83,9 +83,9 @@ candidate_containers := containers {
 }
 
 candidate_containers := containers {
-    semver.compare(data.policy.framework_svn, svn) < 0
+    semver.compare(data.policy.framework_version, version) < 0
 
-    policy_containers := apply_defaults("container", data.policy.containers, data.policy.framework_svn)
+    policy_containers := apply_defaults("container", data.policy.containers, data.policy.framework_version)
     fragment_containers := [c |
         feed := data.metadata.issuers[_].feeds[_]
         fragment := feed[_]
@@ -733,20 +733,20 @@ default enforcement_point_info := {"available": false, "default_results": {"allo
 
 enforcement_point_info := {"available": available, "default_results": default_results, "unknown": false, "invalid": false} {
     enforcement_point := data.api.enforcement_points[input.name]
-    semver.compare(data.api.svn, enforcement_point.introducedVersion) >= 0
-    available := semver.compare(data.policy.api_svn, enforcement_point.introducedVersion) >= 0
+    semver.compare(data.api.version, enforcement_point.introducedVersion) >= 0
+    available := semver.compare(data.policy.api_version, enforcement_point.introducedVersion) >= 0
     default_results := enforcement_point.default_results
 }
 
 enforcement_point_info := {"available": false, "default_results": {"allow": false}, "unknown": false, "invalid": true} {
     enforcement_point := data.api.enforcement_points[input.name]
-    semver.compare(data.api.svn, enforcement_point.introducedVersion) < 0
+    semver.compare(data.api.version, enforcement_point.introducedVersion) < 0
 }
 
 default candidate_external_processes := []
 
 candidate_external_processes := external_processes {
-    semver.compare(data.policy.framework_svn, svn) == 0
+    semver.compare(data.policy.framework_version, version) == 0
 
     policy_external_processes := [e | e := data.policy.external_processes[_]]
     fragment_external_processes := [e |
@@ -759,9 +759,9 @@ candidate_external_processes := external_processes {
 }
 
 candidate_external_processes := external_processes {
-    semver.compare(data.policy.framework_svn, svn) < 0
+    semver.compare(data.policy.framework_version, version) < 0
 
-    policy_external_processes := apply_defaults("external_process", data.policy.external_processes, data.policy.framework_svn)
+    policy_external_processes := apply_defaults("external_process", data.policy.external_processes, data.policy.framework_version)
     fragment_external_processes := [e |
         feed := data.metadata.issuers[_].feeds[_]
         fragment := feed[_]
@@ -839,41 +839,41 @@ default fragment_external_processes := []
 
 fragment_external_processes := data[input.namespace].external_processes
 
-apply_defaults(name, raw_values, framework_svn) := values {
-    semver.compare(framework_svn, svn) == 0
+apply_defaults(name, raw_values, framework_version) := values {
+    semver.compare(framework_version, version) == 0
     values := raw_values
 }
 
-apply_defaults("container", raw_values, framework_svn) := values {
-    semver.compare(framework_svn, svn) < 0
+apply_defaults("container", raw_values, framework_version) := values {
+    semver.compare(framework_version, version) < 0
     values := [checked |
         raw := raw_values[_]
-        checked := check_container(raw, framework_svn)
+        checked := check_container(raw, framework_version)
     ]
 }
 
-apply_defaults("external_process", raw_values, framework_svn) := values {
-    semver.compare(framework_svn, svn) < 0
+apply_defaults("external_process", raw_values, framework_version) := values {
+    semver.compare(framework_version, version) < 0
     values := [checked |
         raw := raw_values[_]
-        checked := check_external_process(raw, framework_svn)
+        checked := check_external_process(raw, framework_version)
     ]
 }
 
-apply_defaults("fragment", raw_values, framework_svn) := values {
-    semver.compare(framework_svn, svn) < 0
+apply_defaults("fragment", raw_values, framework_version) := values {
+    semver.compare(framework_version, version) < 0
     values := [checked |
         raw := raw_values[_]
-        checked := check_fragment(raw, framework_svn)
+        checked := check_fragment(raw, framework_version)
     ]
 }
 
 extract_fragment_includes(includes) := fragment {
-    framework_svn := data[input.namespace].framework_svn
+    framework_version := data[input.namespace].framework_version
     objects := {
-        "containers": apply_defaults("container", fragment_containers, framework_svn),
-        "fragments": apply_defaults("fragment", fragment_fragments, framework_svn),
-        "external_processes": apply_defaults("external_process", fragment_external_processes, framework_svn)
+        "containers": apply_defaults("container", fragment_containers, framework_version),
+        "fragments": apply_defaults("fragment", fragment_fragments, framework_version),
+        "external_processes": apply_defaults("external_process", fragment_external_processes, framework_version)
     }
 
     fragment := {
@@ -914,7 +914,7 @@ update_issuer(includes) := issuer {
 default candidate_fragments := []
 
 candidate_fragments := fragments {
-    semver.compare(data.policy.framework_svn, svn) == 0
+    semver.compare(data.policy.framework_version, version) == 0
 
     policy_fragmemnts := [f | f := data.policy.fragments[_]]
     fragment_fragments := [f |
@@ -927,9 +927,9 @@ candidate_fragments := fragments {
 }
 
 candidate_fragments := fragments {
-    semver.compare(data.policy.framework_svn, svn) < 0
+    semver.compare(data.policy.framework_version, version) < 0
 
-    policy_fragments := apply_defaults("fragment", data.policy.fragments, data.policy.framework_svn)
+    policy_fragments := apply_defaults("fragment", data.policy.fragments, data.policy.framework_version)
     fragment_fragments := [f |
         feed := data.metadata.issuers[_].feeds[_]
         fragment := feed[_]
@@ -944,7 +944,10 @@ default load_fragment := {"allowed": false}
 fragment_ok(fragment) {
     input.issuer == fragment.issuer
     input.feed == fragment.feed
-    semver.compare(data[input.namespace].svn, fragment.minimum_svn) >= 0
+    svn := data[input.namespace].svn
+    is_number(fragment.minimum_svn)
+    is_number(svn)
+    svn >= fragment.minimum_svn
 }
 
 load_fragment := {"metadata": [updateIssuer], "add_module": add_module, "allowed": true} {
@@ -1325,12 +1328,18 @@ fragment_version_is_valid {
     some fragment in data.policy.fragments
     fragment.issuer == input.issuer
     fragment.feed == input.feed
-    semver.compare(data[input.namespace].svn, fragment.minimum_svn) >= 0
+    svn := data[input.namespace].svn
+    is_number(fragment.minimum_svn)
+    is_number(svn)
+    svn >= fragment.minimum_svn
 }
 
 fragment_version_is_valid {
     some fragment in data.metadata.issuers[input.issuer][input.feed]
-    semver.compare(data[input.namespace].svn, fragment.minimum_svn) >= 0
+    svn := data[input.namespace].svn
+    is_number(fragment.minimum_svn)
+    is_number(svn)
+    svn >= fragment.minimum_svn
 }
 
 errors["fragment version is below the specified minimum"] {
@@ -1355,24 +1364,24 @@ errors["no scratch at path to unmount"] {
     not scratch_mounted(input.unmountTarget)
 }
 
-errors[framework_svn_error] {
-    not data.policy.framework_svn
-    framework_svn_error := concat(" ", ["framework_svn is missing. Current svn:", svn])
+errors[framework_version_error] {
+    not data.policy.framework_version
+    framework_version_error := concat(" ", ["framework_version is missing. Current version:", version])
 }
 
-errors[framework_svn_error] {
-    semver.compare(data.policy.framework_svn, svn) > 0
-    framework_svn_error := concat(" ", ["framework_svn is ahead of the current svn:", data.policy.framework_svn, ">", svn])
+errors[framework_version_error] {
+    semver.compare(data.policy.framework_version, version) > 0
+    framework_version_error := concat(" ", ["framework_version is ahead of the current version:", data.policy.framework_version, ">", version])
 }
 
-errors[fragment_framework_svn_error] {
-    not data[input.namespace].framework_svn
-    fragment_framework_svn_error := concat(" ", ["fragment framework_svn is missing. Current svn:", svn])
+errors[fragment_framework_version_error] {
+    not data[input.namespace].framework_version
+    fragment_framework_version_error := concat(" ", ["fragment framework_version is missing. Current version:", version])
 }
 
-errors[fragment_framework_svn_error] {
-    semver.compare(data[input.namespace].framework_svn, svn) > 0
-    fragment_framework_svn_error := concat(" ", ["fragment framework_svn is ahead of the current svn:", data[input.namespace].framework_svn, ">", svn])
+errors[fragment_framework_version_error] {
+    semver.compare(data[input.namespace].framework_version, version) > 0
+    fragment_framework_version_error := concat(" ", ["fragment framework_version is ahead of the current version:", data[input.namespace].framework_version, ">", version])
 }
 
 errors["containers only distinguishable by allow_stdio_access"] {
@@ -1650,13 +1659,13 @@ error_objects := fragments {
 ################################################################################
 
 
-check_container(raw_container, framework_svn) := container {
-    semver.compare(framework_svn, svn) == 0
+check_container(raw_container, framework_version) := container {
+    semver.compare(framework_version, version) == 0
     container := raw_container
 }
 
-check_container(raw_container, framework_svn) := container {
-    semver.compare(framework_svn, svn) < 0
+check_container(raw_container, framework_version) := container {
+    semver.compare(framework_version, version) < 0
     container := {
         # Base fields
         "command": raw_container.command,
@@ -1669,30 +1678,30 @@ check_container(raw_container, framework_svn) := container {
         "signals": raw_container.signals,
         "allow_stdio_access": raw_container.allow_stdio_access,
         # Additional fields need to have default logic applied
-        "no_new_privileges": check_no_new_privileges(raw_container, framework_svn),
-        "user": check_user(raw_container, framework_svn),
-        "capabilities": check_capabilities(raw_container, framework_svn),
-        "seccomp_profile_sha256": check_seccomp_profile_sha256(raw_container, framework_svn),
+        "no_new_privileges": check_no_new_privileges(raw_container, framework_version),
+        "user": check_user(raw_container, framework_version),
+        "capabilities": check_capabilities(raw_container, framework_version),
+        "seccomp_profile_sha256": check_seccomp_profile_sha256(raw_container, framework_version),
     }
 }
 
-check_no_new_privileges(raw_container, framework_svn) := no_new_privileges {
-    semver.compare(framework_svn, "0.2.0") >= 0
+check_no_new_privileges(raw_container, framework_version) := no_new_privileges {
+    semver.compare(framework_version, "0.2.0") >= 0
     no_new_privileges := raw_container.no_new_privileges
 }
 
-check_no_new_privileges(raw_container, framework_svn) := no_new_privileges {
-    semver.compare(framework_svn, "0.2.0") < 0
+check_no_new_privileges(raw_container, framework_version) := no_new_privileges {
+    semver.compare(framework_version, "0.2.0") < 0
     no_new_privileges := false
 }
 
-check_user(raw_container, framework_svn) := user {
-    semver.compare(framework_svn, "0.2.1") >= 0
+check_user(raw_container, framework_version) := user {
+    semver.compare(framework_version, "0.2.1") >= 0
     user := raw_container.user
 }
 
-check_user(raw_container, framework_svn) := user {
-    semver.compare(framework_svn, "0.2.1") < 0
+check_user(raw_container, framework_version) := user {
+    semver.compare(framework_version, "0.2.1") < 0
     user := {
         "umask": "0022",
         "user_idname": {
@@ -1708,13 +1717,13 @@ check_user(raw_container, framework_svn) := user {
     }
 }
 
-check_capabilities(raw_container, framework_svn) := capabilities {
-    semver.compare(framework_svn, "0.2.2") >= 0
+check_capabilities(raw_container, framework_version) := capabilities {
+    semver.compare(framework_version, "0.2.2") >= 0
     capabilities := raw_container.capabilities
 }
 
-check_capabilities(raw_container, framework_svn) := capabilities {
-    semver.compare(framework_svn, "0.2.2") < 0
+check_capabilities(raw_container, framework_version) := capabilities {
+    semver.compare(framework_version, "0.2.2") < 0
     # we cannot determine a reasonable default at the time this is called,
     # which is either during `mount_overlay` or `load_fragment`, and so
     # we set it to `null`, which indicates that the capabilities should
@@ -1722,23 +1731,23 @@ check_capabilities(raw_container, framework_svn) := capabilities {
     capabilities := null
 }
 
-check_seccomp_profile_sha256(raw_container, framework_svn) := seccomp_profile_sha256 {
-    semver.compare(framework_svn, "0.2.3") >= 0
+check_seccomp_profile_sha256(raw_container, framework_version) := seccomp_profile_sha256 {
+    semver.compare(framework_version, "0.2.3") >= 0
     seccomp_profile_sha256 := raw_container.seccomp_profile_sha256
 }
 
-check_seccomp_profile_sha256(raw_container, framework_svn) := seccomp_profile_sha256 {
-    semver.compare(framework_svn, "0.2.3") < 0
+check_seccomp_profile_sha256(raw_container, framework_version) := seccomp_profile_sha256 {
+    semver.compare(framework_version, "0.2.3") < 0
     seccomp_profile_sha256 := ""
 }
 
-check_external_process(raw_process, framework_svn) := process {
-    semver.compare(framework_svn, svn) == 0
+check_external_process(raw_process, framework_version) := process {
+    semver.compare(framework_version, version) == 0
     process := raw_process
 }
 
-check_external_process(raw_process, framework_svn) := process {
-    semver.compare(framework_svn, svn) < 0
+check_external_process(raw_process, framework_version) := process {
+    semver.compare(framework_version, version) < 0
     process := {
         # Base fields
         "command": raw_process.command,
@@ -1749,13 +1758,13 @@ check_external_process(raw_process, framework_svn) := process {
     }
 }
 
-check_fragment(raw_fragment, framework_svn) := fragment {
-    semver.compare(framework_svn, svn) == 0
+check_fragment(raw_fragment, framework_version) := fragment {
+    semver.compare(framework_version, version) == 0
     fragment := raw_fragment
 }
 
-check_fragment(raw_fragment, framework_svn) := fragment {
-    semver.compare(framework_svn, svn) < 0
+check_fragment(raw_fragment, framework_version) := fragment {
+    semver.compare(framework_version, version) < 0
     fragment := {
         # Base fields
         "issuer": raw_fragment.issuer,
@@ -1778,6 +1787,6 @@ allow_unencrypted_scratch := data.policy.allow_unencrypted_scratch
 default allow_capability_dropping := false
 
 allow_capability_dropping := flag {
-    semver.compare(data.policy.framework_svn, "0.2.2") >= 0
+    semver.compare(data.policy.framework_version, "0.2.2") >= 0
     flag := data.policy.allow_capability_dropping
 }

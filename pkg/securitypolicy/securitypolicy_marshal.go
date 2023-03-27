@@ -47,7 +47,7 @@ var policyRegoTemplate string
 //go:embed open_door.rego
 var openDoorRegoTemplate string
 
-var openDoorRego = strings.Replace(openDoorRegoTemplate, "@@API_SVN@@", apiSVN, 1)
+var openDoorRego = strings.Replace(openDoorRegoTemplate, "@@API_VERSION@@", apiVersion, 1)
 
 func marshalJSON(
 	allowAll bool,
@@ -120,7 +120,7 @@ func marshalRego(
 
 func MarshalFragment(
 	namespace string,
-	svn string,
+	svn int,
 	containers []*Container,
 	externalProcesses []ExternalProcessConfig,
 	fragments []FragmentConfig) (string, error) {
@@ -407,7 +407,7 @@ func addExternalProcesses(builder *strings.Builder, processes []*externalProcess
 
 func (f fragment) marshalRego() string {
 	includes := stringArray(f.includes).marshalRego()
-	return fmt.Sprintf(`{"issuer": "%s", "feed": "%s", "minimum_svn": "%s", "includes": %s}`,
+	return fmt.Sprintf(`{"issuer": "%s", "feed": "%s", "minimum_svn": %d, "includes": %s}`,
 		f.issuer, f.feed, f.minimumSVN, includes)
 }
 
@@ -437,8 +437,8 @@ func (p securityPolicyInternal) marshalRego() string {
 	writeLine(builder, "allow_unencrypted_scratch := %t", p.AllowUnencryptedScratch)
 	writeLine(builder, "allow_capability_dropping := %t", p.AllowCapabilityDropping)
 	result := strings.Replace(policyRegoTemplate, "@@OBJECTS@@", builder.String(), 1)
-	result = strings.Replace(result, "@@API_SVN@@", apiSVN, 1)
-	result = strings.Replace(result, "@@FRAMEWORK_SVN@@", frameworkSVN, 1)
+	result = strings.Replace(result, "@@API_VERSION@@", apiVersion, 1)
+	result = strings.Replace(result, "@@FRAMEWORK_VERSION@@", frameworkVersion, 1)
 	return result
 }
 
@@ -447,5 +447,5 @@ func (p securityPolicyFragment) marshalRego() string {
 	addFragments(builder, p.Fragments)
 	addContainers(builder, p.Containers)
 	addExternalProcesses(builder, p.ExternalProcesses)
-	return fmt.Sprintf("package %s\n\nsvn := \"%s\"\nframework_svn := \"%s\"\n\n%s", p.Namespace, p.SVN, frameworkSVN, builder.String())
+	return fmt.Sprintf("package %s\n\nsvn := %d\nframework_version := \"%s\"\n\n%s", p.Namespace, p.SVN, frameworkVersion, builder.String())
 }
