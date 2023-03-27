@@ -1,0 +1,46 @@
+allow_capability_dropping = true
+
+[[container]]
+image_name = "rust:1.52.1"
+command = ["rustc", "--help"]
+working_dir = "/home/user"
+allow_elevated = true
+
+[container.capabilities]
+bounding = ["CAP_SYS_ADMIN"]
+effective = ["CAP_SYS_ADMIN"]
+inheritable = ["CAP_SYS_ADMIN"]
+permitted = ["CAP_SYS_ADMIN"]
+ambient = ["CAP_SYS_ADMIN"]
+
+[[container.env_rule]]
+strategy = "re2"
+rule = "PREFIX_.+=.+"
+
+[[container.mount]]
+host_path = "sandbox:///host/path/one"
+container_path = "/container/path/one"
+readonly = false
+
+[[container.mount]]
+host_path = "sandbox:///host/path/two"
+container_path = "/container/path/two"
+readonly = true
+
+[[container.exec_process]]
+command = ["top"]
+working_dir = "/home/user"
+
+[[container.exec_process.env_rule]]
+strategy = "string"
+rule = "FOO=bar"
+
+[[external_process]]
+command = ["bash"]
+working_dir = "/"
+
+[[fragment]]
+issuer = "did:web:contoso.com"
+feed = "contoso.azurecr.io/infra"
+minimum_svn = 1
+include = ["containers"]

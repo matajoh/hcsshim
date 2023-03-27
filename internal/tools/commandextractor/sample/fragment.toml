@@ -1,0 +1,8 @@
+[[container]]
+image_name = "rust:1.52.1"
+command = ["rustc", "--version"]
+working_dir = "/home/fragment"
+
+[[container.exec_process]]
+command = ["bash"]
+working_dir = "/home/fragment"

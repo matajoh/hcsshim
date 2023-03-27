@@ -179,7 +179,7 @@ func containerToCommands(container *sp.Container, privileged bool) []command {
 	numLayers := len(container.Layers.Elements)
 	layerPaths := make([]string, numLayers)
 	for layer := 0; layer < numLayers; layer++ {
-		layerTarget := fmt.Sprintf("/mnt/%s", generateLayerID())
+		layerTarget := fmt.Sprintf("/run/layers/p0-%s", generateLayerID())
 		layerPaths[layer] = layerTarget
 		deviceHash := container.Layers.Elements[strconv.Itoa(numLayers-layer-1)]
 		commands = append(commands, command{
@@ -193,7 +193,7 @@ func containerToCommands(container *sp.Container, privileged bool) []command {
 
 	containerID := generateContainerID()
 	sandboxID := generateSandboxID()
-	overlayTarget := fmt.Sprintf("/mnt/%s", generateLayerID())
+	overlayTarget := fmt.Sprintf("/run/gcs/c/%s/rootfs", containerID)
 	commands = append(commands, command{
 		Name: "mount_overlay",
 		Input: map[string]interface{}{
@@ -258,12 +258,15 @@ func containerToCommands(container *sp.Container, privileged bool) []command {
 		groups[i] = toIDName(group)
 	}
 
-	capabilities := map[string]interface{}{
-		"bounding":    container.Capabilities.Bounding,
-		"effective":   container.Capabilities.Effective,
-		"inheritable": container.Capabilities.Inheritable,
-		"permitted":   container.Capabilities.Permitted,
-		"ambient":     container.Capabilities.Ambient,
+	var capabilities map[string]interface{} = nil
+	if container.Capabilities != nil {
+		capabilities = map[string]interface{}{
+			"bounding":    container.Capabilities.Bounding,
+			"effective":   container.Capabilities.Effective,
+			"inheritable": container.Capabilities.Inheritable,
+			"permitted":   container.Capabilities.Permitted,
+			"ambient":     container.Capabilities.Ambient,
+		}
 	}
 
 	commands = append(commands, command{
