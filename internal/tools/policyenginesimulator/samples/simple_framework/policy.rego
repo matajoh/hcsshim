@@ -1,13 +1,13 @@
 package policy
 
-api_svn := "0.7.0"
-framework_svn := "0.1.0"
+api_version := "0.7.0"
+framework_version := "0.1.0"
 
 import future.keywords.every
 import future.keywords.in
 
 fragments := [
-    {"issuer": "did:web:contoso.github.io", "feed": "contoso.azurecr.io/fragment", "minimum_svn": "1.0.0", "includes": ["containers"]},
+    {"issuer": "did:web:contoso.github.io", "feed": "contoso.azurecr.io/fragment", "minimum_svn": 1, "includes": ["containers"]},
 ]
 containers := [
     {

@@ -1,7 +1,7 @@
 package fragment
 
-svn := "1.0.0"
-framework_svn := "0.1.0"
+svn := 1
+framework_version := "0.1.0"
 
 containers := [
     {
