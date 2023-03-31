@@ -1389,11 +1389,13 @@ errors[framework_version_error] {
 }
 
 errors[fragment_framework_version_error] {
+    input.namespace
     fragment_framework_version == null
     fragment_framework_version_error := concat(" ", ["fragment framework_version is missing. Current version:", version])
 }
 
 errors[fragment_framework_version_error] {
+    input.namespace
     semver.compare(fragment_framework_version, version) > 0
     fragment_framework_version_error := concat(" ", ["fragment framework_version is ahead of the current version:", fragment_framework_version, ">", version])
 }
